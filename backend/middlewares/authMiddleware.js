@@ -4,11 +4,11 @@ const User = require("../models/User");
 const protect = async (req, res, next) => {
   let token;
 
-  try {
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer ")
-    ) {
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    try {
       token = req.headers.authorization.split(" ")[1];
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -16,16 +16,15 @@ const protect = async (req, res, next) => {
       req.user = await User.findById(decoded.id).select("-password");
 
       next();
-    } else {
-      return res.status(401).json({
-        message: "Not authorized, token missing"
-      });
+    } catch (error) {
+      console.log("AUTH ERROR:", error);
+      res.status(401).json({ message: "Not authorized, token failed" });
     }
-  } catch (error) {
-    return res.status(401).json({
-      message: "Not authorized, token failed"
-    });
+  }
+
+  if (!token) {
+    res.status(401).json({ message: "Not authorized, no token" });
   }
 };
 
-module.exports = { protect };
+module.exports = protect;

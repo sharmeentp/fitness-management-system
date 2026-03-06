@@ -1,9 +1,12 @@
-// Load environment variables FIRST
 require("dotenv").config();
-
 const express = require("express");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 const cors = require("cors");
-const connectDB = require("./config/db");
+const nutritionRoutes = require("./routes/nutritionRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+
+dotenv.config();
 
 const app = express();
 
@@ -11,21 +14,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-connectDB();
-
-// Test route (to check backend)
-app.get("/", (req, res) => {
-  res.send("Backend is running");
-});
-
 // Routes
-app.use("/api/auth", require("./routes/authRoutes"));
+const userRoutes = require("./routes/userRoutes");
+const workoutRoutes = require("./routes/workoutRoutes");
 
-// Port
-const PORT = process.env.PORT || 5000;
+app.use("/api/users", userRoutes);
+app.use("/api/workouts", workoutRoutes);
+app.use("/api/nutrition", nutritionRoutes);
+app.use("/api/payment", paymentRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
-});
+// MongoDB Connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("MongoDB Connected");
+    app.listen(5000, () => {
+      console.log("Server running on port 5000");
+    });
+  })
+  .catch((error) => {
+    console.log("MongoDB connection failed:", error.message);
+  });
