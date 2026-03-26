@@ -5,28 +5,36 @@ const generateToken = require("../utils/generateToken");
 // ================= REGISTER =================
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
-
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const {
+      name,
+      email,
+      password,
+      role,
+      age,
+      gender,
+      height,
+      weight,
+      qualification,
+      experience,
+    } = req.body;
 
     const user = await User.create({
-  name,
-  email,
-  password: hashedPassword,
-  role,
-  isApproved: role === "खिमadmin" ? true : false,
-});
+      name,
+      email,
+      password,
+      role,
+      age,
+      gender,
+      height,
+      weight,
+      qualification,
+      experience,
+      isApproved: false,
+    });
+
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
+      message: "User registered successfully",
+      user,
     });
   } catch (error) {
     console.log("REGISTER ERROR:", error);
@@ -40,40 +48,35 @@ exports.loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    // Check if admin approved the account
-if (!user.isApproved) {
-  return res.status(401).json({
-    message: "Waiting for admin approval"
-  });
-}
+
+    // ✅ CHECK FIRST
     if (!user) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "User not found" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
-    }
-
+    // ✅ THEN CHECK APPROVAL
     if (!user.isApproved) {
-  return res.status(401).json({
-    message: "Your account is waiting for admin approval",
-  });
-}
+      return res.status(403).json({ message: "Waiting for admin approval" });
+    }
 
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
-    });
+    // ✅ PASSWORD CHECK
+    if (await user.matchPassword(password)) {
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token: generateToken(user._id),
+      });
+    } else {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
   } catch (error) {
     console.log("LOGIN ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };
-
 // ================= ASSIGN TRAINER =================
 exports.assignTrainer = async (req, res) => {
   try {
@@ -106,7 +109,7 @@ exports.assignTrainer = async (req, res) => {
 // ================= ADMIN: GET ALL USERS =================
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const users = await User.find({ role: "user" }); // ✅ ONLY USERS
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -116,7 +119,7 @@ exports.getAllUsers = async (req, res) => {
 // ================= ADMIN: GET ALL TRAINERS =================
 exports.getAllTrainers = async (req, res) => {
   try {
-    const trainers = await User.find().select("-password");
+    const trainers = await User.find({ role: "trainer" }); // ✅ ONLY TRAINERS
     res.json(trainers);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -159,26 +162,28 @@ exports.getMyProfile = async (req, res) => {
   }
 };
 
-const upgradeUser = async (req, res) => {
+exports.upgradeUser = async (req, res) => {
   try {
-    // req.user comes from protect middleware
     const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.isPremium = true;
+    user.isPremium = true; // ⭐ THIS LINE IS KEY
+
     await user.save();
 
-    res.json({ message: "User upgraded to premium" });
+    res.json({
+      message: "User upgraded to premium",
+      user,
+    });
 
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Server error" });
+    console.log("UPGRADE ERROR:", error);
+    res.status(500).json({ message: error.message });
   }
 };
-
 // ================= USER: UPGRADE TO PREMIUM =================
 exports.upgradeUser = async (req, res) => {
   try {
@@ -202,12 +207,15 @@ exports.upgradeUser = async (req, res) => {
 // ================= ADMIN: APPROVE USER =================
 exports.approveUser = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+
+    // ✅ FIX: check req.user exists
+    if (!req.user || req.user.role !== "admin") {
       return res.status(403).json({ message: "Admin only" });
     }
 
     const user = await User.findById(req.params.id);
 
+    // ✅ FIX: check user exists
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -219,10 +227,9 @@ exports.approveUser = async (req, res) => {
 
   } catch (error) {
     console.log("APPROVE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: error.message });
   }
 };
-
 // ================= ADMIN: APPROVE TRAINER =================
 exports.approveTrainer = async (req, res) => {
   try {
@@ -272,8 +279,46 @@ exports.getAssignedUsers = async (req, res) => {
   }
 };
 
+exports.getApprovedTrainers = async (req, res) => {
+  try {
+    const trainers = await User.find({
+      role: "trainer",
+      isApproved: true
+    }).select("-password");
 
+    res.json(trainers);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
+// ================= DELETE USER OR TRAINER (ADMIN ONLY) =================
+exports.deleteUser = async (req, res) => {
+  try {
 
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin only" });
+    }
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // ✅ ADD THIS BLOCK HERE
+    if (user.role === "admin") {
+      return res.status(400).json({ message: "Cannot delete admin" });
+    }
+
+    await user.deleteOne();
+
+    res.json({ message: "User deleted successfully" });
+
+  } catch (error) {
+    console.log("DELETE USER ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
 

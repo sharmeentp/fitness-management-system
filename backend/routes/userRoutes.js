@@ -12,11 +12,12 @@ const {
   upgradeUser,
   approveUser,
   approveTrainer,
-  getAssignedUsers
+  getAssignedUsers,
+  getApprovedTrainers,
+  deleteUser
 } = require("../controllers/authController");
 
 const protect = require("../middlewares/authMiddleware");
-
 
 // Register
 router.post("/register", registerUser);
@@ -24,26 +25,33 @@ router.post("/register", registerUser);
 // Login
 router.post("/login", loginUser);
 
-// Assign trainer to user
+// Assign trainer
 router.put("/assign-trainer/:userId", protect, assignTrainer);
 
 // Admin routes
 router.get("/all-users", protect, getAllUsers);
 router.get("/all-trainers", protect, getAllTrainers);
 
-// Trainer: get assigned users
+// Trainer routes
 router.get("/my-users", protect, getMyUsers);
 
 // User profile
 router.get("/profile", protect, getMyProfile);
 
-// Upgrade to premium
+// Premium upgrade
 router.put("/upgrade", protect, upgradeUser);
 
-// Admin approve user/trainer
+// Admin approval
 router.put("/approve/:id", protect, approveUser);
-
 router.put("/approve-trainer/:id", protect, approveTrainer);
+
+// Assigned users
 router.get("/assigned-users", protect, getAssignedUsers);
+
+// Approved trainers
+router.get("/approved-trainers", protect, getApprovedTrainers);
+
+// Delete user or trainer
+router.delete("/:id", protect, deleteUser);
 
 module.exports = router;
