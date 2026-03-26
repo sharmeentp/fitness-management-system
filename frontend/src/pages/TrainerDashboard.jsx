@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import BMICalculator from "../components/BMIcalculator";
 
 const TrainerDashboard = () => {
   const navigate = useNavigate();
@@ -8,393 +9,305 @@ const TrainerDashboard = () => {
 
   const [users, setUsers] = useState([]);
   const [workouts, setWorkouts] = useState([]);
-  const [selectedUser, setSelectedUser] = useState("");
+
+  // ✅ separate states (important fix)
+  const [workoutUser, setWorkoutUser] = useState("");
+  const [nutritionUser, setNutritionUser] = useState("");
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [editingId, setEditingId] = useState(null);
+
   const [nutritionTitle, setNutritionTitle] = useState("");
-const [nutritionDescription, setNutritionDescription] = useState("");
-const [nutritionPlans, setNutritionPlans] = useState([]);
+  const [nutritionDescription, setNutritionDescription] = useState("");
+  const [nutritionPlans, setNutritionPlans] = useState([]);
 
-
-  // Redirect if not trainer
+  // ================= AUTH =================
   useEffect(() => {
     if (!userInfo || userInfo.role !== "trainer") {
       navigate("/");
     }
   }, []);
 
- const fetchUsers = async () => {
-  try {
+  // ================= FETCH =================
+  const fetchUsers = async () => {
     const res = await axios.get(
       "http://localhost:5000/api/users/assigned-users",
       {
-        headers: {
-          Authorization: `Bearer ${userInfo.token}`,
-        },
+        headers: { Authorization: `Bearer ${userInfo.token}` },
       }
     );
-
     setUsers(res.data);
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-useEffect(() => {
-  fetchUsers();
-}, []);
+  };
 
   const fetchWorkouts = async () => {
-    try {
-      const res = await axios.get(
-        "http://localhost:5000/api/workouts",
-        {
-          headers: { Authorization: `Bearer ${userInfo.token}` },
-        }
-      );
-      setWorkouts(res.data);
-    } catch (error) {
-      console.log(error);
-    }
+    const res = await axios.get(
+      "http://localhost:5000/api/workouts",
+      {
+        headers: { Authorization: `Bearer ${userInfo.token}` },
+      }
+    );
+    setWorkouts(res.data);
   };
 
   const fetchNutrition = async () => {
-  try {
     const res = await axios.get(
       "http://localhost:5000/api/nutrition",
       {
         headers: { Authorization: `Bearer ${userInfo.token}` },
       }
     );
-
     setNutritionPlans(res.data);
-  } catch (error) {
-    console.log(error);
-  }
-};
+  };
 
-const handleCreateNutrition = async (e) => {
-  e.preventDefault();
-
-  if (!selectedUser) {
-    alert("Please select a user");
-    return;
-  }
-
-  try {
-    await axios.post(
-      "http://localhost:5000/api/nutrition",
-      {
-        title: nutritionTitle,
-        description: nutritionDescription,
-        user: selectedUser,   // ✅ THIS IS THE FIX
-      },
-      {
-        headers: { Authorization: `Bearer ${userInfo.token}` },
-      }
-    );
-
-    alert("Nutrition Plan Created");
-
-    setNutritionTitle("");
-    setNutritionDescription("");
-    setSelectedUser("");  // reset dropdown
-
-    fetchNutrition();
-  } catch (error) {
-    console.log(error);
-    alert("Error creating nutrition");
-  }
-};
   useEffect(() => {
     fetchUsers();
     fetchWorkouts();
     fetchNutrition();
   }, []);
 
-  // Create OR Update Workout
+  // ================= WORKOUT =================
   const handleAssignWorkout = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!selectedUser) {
-    alert("Please select a user");
-    return;
-  }
+    if (!workoutUser) return alert("Select user");
 
-  if (!title || !description) {
-    alert("Please enter title and description");
-    return;
-  }
-
-  try {
     await axios.post(
       "http://localhost:5000/api/workouts",
       {
-        userId: selectedUser,
-        title: title,
-        description: description
+        userId: workoutUser,
+        title,
+        description,
       },
       {
-        headers: {
-          Authorization: `Bearer ${userInfo.token}`
-        }
+        headers: { Authorization: `Bearer ${userInfo.token}` },
       }
     );
 
-    alert("Workout Assigned Successfully");
-
+    alert("Workout Assigned");
     setTitle("");
     setDescription("");
-    setSelectedUser("");
-
+    setWorkoutUser("");
     fetchWorkouts();
-
-  } catch (error) {
-    console.log(error.response?.data || error);
-    alert("Workout assignment failed");
-  }
-};
-  const handleEdit = (workout) => {
-    setEditingId(workout._id);
-    setTitle(workout.title);
-    setDescription(workout.description);
-    setSelectedUser(workout.user?._id);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this workout?")) return;
-
-    try {
-      await axios.delete(
-        `http://localhost:5000/api/workouts/${id}`,
-        {
-          headers: { Authorization: `Bearer ${userInfo.token}` },
-        }
-      );
-
-      alert("Workout Deleted Successfully");
-      fetchWorkouts();
-    } catch (error) {
-      console.log(error);
-      alert("Error deleting workout");
-    }
+  const handleDeleteWorkout = async (id) => {
+    await axios.delete(
+      `http://localhost:5000/api/workouts/${id}`,
+      {
+        headers: { Authorization: `Bearer ${userInfo.token}` },
+      }
+    );
+    fetchWorkouts();
   };
 
+  // ================= NUTRITION =================
+  const handleCreateNutrition = async (e) => {
+    e.preventDefault();
 
+    if (!nutritionUser) return alert("Select user");
 
+    await axios.post(
+      "http://localhost:5000/api/nutrition",
+      {
+        title: nutritionTitle,
+        description: nutritionDescription,
+        user: nutritionUser,
+      },
+      {
+        headers: { Authorization: `Bearer ${userInfo.token}` },
+      }
+    );
+
+    alert("Nutrition Created");
+    setNutritionTitle("");
+    setNutritionDescription("");
+    setNutritionUser("");
+    fetchNutrition();
+  };
+
+  const handleDeleteNutrition = async (id) => {
+    await axios.delete(
+      `http://localhost:5000/api/nutrition/${id}`,
+      {
+        headers: { Authorization: `Bearer ${userInfo.token}` },
+      }
+    );
+    fetchNutrition();
+  };
+
+  // ================= LOGOUT =================
   const handleLogout = () => {
     localStorage.removeItem("userInfo");
     navigate("/");
   };
 
   return (
-    <div style={styles.container}>
-      <h2>Welcome Trainer: {userInfo?.name}</h2>
+    <div className="min-h-screen bg-gradient-to-r from-purple-500 to-pink-500 p-6">
 
-      <button onClick={handleLogout} style={styles.logout}>
-        Logout
-      </button>
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-white">
+          Welcome, {userInfo?.name} 👋
+        </h1>
 
-      <hr />
-      
-
-      <h3>{editingId ? "Edit Workout" : "Assign Workout"}</h3>
-
-      <form onSubmit={handleAssignWorkout} style={styles.form}>
-        {!editingId && (
-          <select
-            value={selectedUser}
-            onChange={(e) => setSelectedUser(e.target.value)}
-            style={styles.input}
-          >
-            <option value="">Select User</option>
-            {users.map((user) => (
-             <option key={user._id} value={user._id}>
-  {user.name} ({user.email}) {user.isPremium ? "⭐ Premium" : ""}
-</option>
-            ))}
-          </select>
-        )}
-
-        <input
-          type="text"
-          placeholder="Workout Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          style={styles.input}
-        />
-
-        <textarea
-          placeholder="Workout Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          required
-          style={styles.textarea}
-        />
-
-        <button type="submit" style={styles.button}>
-          {editingId ? "Update Workout" : "Assign Workout"}
+        <button
+          onClick={handleLogout}
+          className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg text-white"
+        >
+          Logout
         </button>
-      </form>
+      </div>
 
-      <hr />
+      {/* TOP CARDS */}
+      <div className="grid md:grid-cols-2 gap-6">
 
-    
+        {/* NUTRITION */}
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <h2 className="text-xl font-bold mb-4">Create Nutrition Plan</h2>
 
-      <h3>Create Nutrition Plan</h3>
-      <select
-  value={selectedUser}
-  onChange={(e) => setSelectedUser(e.target.value)}
-  required
-  style={styles.input}
->
-  <option value="">Select User</option>
-  {users.map((user) => (
-    <option key={user._id} value={user._id}>
-      {user.name} ({user.email})
-    </option>
-  ))}
-</select>
+          <form onSubmit={handleCreateNutrition} className="flex flex-col gap-3">
 
-<form onSubmit={handleCreateNutrition} style={styles.form}>
-  <input
-    type="text"
-    placeholder="Nutrition Title"
-    value={nutritionTitle}
-    onChange={(e) => setNutritionTitle(e.target.value)}
-    required
-    style={styles.input}
-  />
+            <select
+              value={nutritionUser}
+              onChange={(e) => setNutritionUser(e.target.value)}
+              className="border p-2 rounded"
+            >
+              <option value="">Select User</option>
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
 
-  <textarea
-    placeholder="Nutrition Description"
-    value={nutritionDescription}
-    onChange={(e) => setNutritionDescription(e.target.value)}
-    required
-    style={styles.textarea}
-  />
+            <input
+              type="text"
+              placeholder="Nutrition Title"
+              value={nutritionTitle}
+              onChange={(e) => setNutritionTitle(e.target.value)}
+              className="border p-2 rounded"
+            />
 
-  <button type="submit" style={styles.button}>
-    Create Nutrition
-  </button>
-</form>
+            <textarea
+              placeholder="Nutrition Description"
+              value={nutritionDescription}
+              onChange={(e) => setNutritionDescription(e.target.value)}
+              className="border p-2 rounded"
+            />
 
-<hr />
+            <button className="bg-green-500 text-white py-2 rounded">
+              Create Nutrition
+            </button>
 
-<h3>My Nutrition Plans</h3>
+          </form>
+        </div>
 
-{nutritionPlans.length === 0 ? (
-  <p>No nutrition plans yet.</p>
-) : (
-  nutritionPlans.map((plan) => (
-    <div key={plan._id} style={styles.card}>
-      <h4>{plan.title}</h4>
-      <p>{plan.description}</p>
-      <small>
-  Assigned To: {plan.user?.name} ({plan.user?.email})
-</small>
+        {/* WORKOUT */}
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <h2 className="text-xl font-bold mb-4">Assign Workout</h2>
 
-      <button
-        onClick={async () => {
-          try {
-            await axios.delete(
-              `http://localhost:5000/api/nutrition/${plan._id}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${userInfo.token}`,
-                },
-              }
-            );
+          <form onSubmit={handleAssignWorkout} className="flex flex-col gap-3">
 
-            alert("Deleted Successfully");
-            fetchNutrition();
-          } catch (error) {
-            console.log(error);
-          }
-        }}
-        style={{ backgroundColor: "red", color: "white" }}
-      >
-        Delete
-      </button>
-    </div>
-  ))
-)}
+            <select
+              value={workoutUser}
+              onChange={(e) => setWorkoutUser(e.target.value)}
+              className="border p-2 rounded"
+            >
+              <option value="">Select User</option>
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
 
-      <h3>My Assigned Workouts</h3>
+            <input
+              type="text"
+              placeholder="Workout Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="border p-2 rounded"
+            />
 
-      {workouts.length === 0 ? (
-        <p>No workouts assigned yet.</p>
-      ) : (
-        workouts.map((workout) => (
-          <div key={workout._id} style={styles.card}>
-            <h4>{workout.title}</h4>
-            <p>{workout.description}</p>
+            <textarea
+              placeholder="Workout Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="border p-2 rounded"
+            />
 
-            <p>
-              <strong>Status:</strong>{" "}
-              {workout.completed ? "Completed ✅" : "Pending ⏳"}
-            </p>
+            <button className="bg-purple-600 text-white py-2 rounded">
+              Assign Workout
+            </button>
 
-           <small>
-  Assigned To: {workout.user?.name} ({workout.user?.email}){" "}
-  {workout.user?.isPremium ? "⭐ Premium" : ""}
-</small>
+          </form>
+        </div>
 
-            <div style={{ marginTop: "10px" }}>
+        {/* BMI */}
+        <div className="bg-white rounded-xl shadow-lg p-5">
+          <h2 className="text-xl font-bold mb-4">BMI Calculator</h2>
+
+          {!workoutUser ? (
+            <p>Select user</p>
+          ) : (
+            users
+              .filter((u) => u._id === workoutUser)
+              .map((user) => (
+                <BMICalculator key={user._id} userData={user} />
+              ))
+          )}
+        </div>
+
+      </div>
+
+      {/* WORKOUT LIST */}
+      <div className="mt-8 bg-white rounded-xl shadow-lg p-5">
+        <h2 className="text-xl font-bold mb-4">Assigned Workouts</h2>
+
+        {workouts.map((workout) => (
+          <div key={workout._id} className="flex justify-between mb-2">
+            <div>
+              <h4>{workout.title}</h4>
+              <p>{workout.user?.name}</p>
+            </div>
+
+            <button
+              onClick={() => handleDeleteWorkout(workout._id)}
+              className="bg-red-500 text-white px-3 py-1 rounded"
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* NUTRITION LIST */}
+      <div className="mt-8 bg-white rounded-xl shadow-lg p-5">
+        <h2 className="text-xl font-bold mb-4">Nutrition Plans</h2>
+
+        {nutritionPlans.length === 0 ? (
+          <p>No nutrition plans yet</p>
+        ) : (
+          nutritionPlans.map((plan) => (
+            <div key={plan._id} className="flex justify-between mb-2">
+              <div>
+                <h4>{plan.title}</h4>
+                <p>{plan.user?.name}</p>
+              </div>
+
               <button
-                onClick={() => handleEdit(workout)}
-                style={{ marginRight: "10px" }}
-              >
-                Edit
-              </button>
-
-              <button
-                onClick={() => handleDelete(workout._id)}
-                style={{ backgroundColor: "red", color: "white" }}
+                onClick={() => handleDeleteNutrition(plan._id)}
+                className="bg-red-500 text-white px-3 py-1 rounded"
               >
                 Delete
               </button>
             </div>
-          </div>
-        ))
-      )}
+          ))
+        )}
+      </div>
+
     </div>
   );
 };
 
-const styles = {
-  container: { padding: "30px" },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    width: "300px",
-    gap: "10px",
-  },
-  input: { padding: "8px" },
-  textarea: { padding: "8px", height: "80px" },
-  button: {
-    padding: "10px",
-    backgroundColor: "#7b2ff7",
-    color: "white",
-    border: "none",
-    cursor: "pointer",
-  },
-  logout: {
-    padding: "8px 15px",
-    backgroundColor: "red",
-    color: "white",
-    border: "none",
-    cursor: "pointer",
-    marginBottom: "10px",
-  },
-  card: {
-    border: "1px solid #ccc",
-    padding: "10px",
-    marginTop: "10px",
-  },
-};
-
 export default TrainerDashboard;
-
